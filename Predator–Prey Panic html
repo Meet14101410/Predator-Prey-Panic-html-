@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Predator–Prey Panic</title>
+  <style>
+    html,body{height:100%;margin:0;font-family:system-ui,Segoe UI,Roboto}
+    #game{display:flex;flex-direction:column;height:100vh}
+    canvas{background:#0b3b2e;display:block;margin:auto;border:6px solid #0f6}
+    #hud{display:flex;justify-content:space-between;padding:10px 16px;color:#fff}
+    button{background:#0f6;border:none;padding:6px 10px;border-radius:6px;cursor:pointer}
+  </style>
+</head>
+<body>
+  <div id="game">
+    <div id="hud"><div>Score: <span id="score">0</span></div><div><button id="reset">Reset</button></div></div>
+    <canvas id="c" width="720" height="480"></canvas>
+    <p style="text-align:center;color:#ddd;margin:8px 0">Use arrow keys to move the predator (square). Catch prey (circles) to score.</p>
+  </div>
+
+  <script>
+    const cvs = document.getElementById('c'), ctx = cvs.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    let score = 0;
+
+    const predator = {x:350,y:220,w:28,h:28,spd:3};
+    const preys = [];
+
+    function spawnPrey(n=6){
+      for(let i=0;i<n;i++) preys.push({x:Math.random()*(cvs.width-20)+10,y:Math.random()*(cvs.height-20)+10,r:10+Math.random()*8,dx:(Math.random()-.5)*1.8,dy:(Math.random()-.5)*1.8});
+    }
+    spawnPrey();
+
+    const keys = {};
+    onkeydown = e => keys[e.key]=true;
+    onkeyup = e => keys[e.key]=false;
+
+    function update(){
+      // move predator
+      if(keys.ArrowUp) predator.y -= predator.spd;
+      if(keys.ArrowDown) predator.y += predator.spd;
+      if(keys.ArrowLeft) predator.x -= predator.spd;
+      if(keys.ArrowRight) predator.x += predator.spd;
+      predator.x = Math.max(0,Math.min(cvs.width-predator.w,predator.x));
+      predator.y = Math.max(0,Math.min(cvs.height-predator.h,predator.y));
+
+      // move preys
+      for(let p of preys){
+        p.x += p.dx; p.y += p.dy;
+        if(p.x< p.r || p.x> cvs.width-p.r) p.dx *= -1;
+        if(p.y< p.r || p.y> cvs.height-p.r) p.dy *= -1;
+      }
+
+      // collisions
+      for(let i=preys.length-1;i>=0;i--){
+        const p = preys[i];
+        const cx = Math.max(predator.x, Math.min(p.x, predator.x+predator.w));
+        const cy = Math.max(predator.y, Math.min(p.y, predator.y+predator.h));
+        const dist = Math.hypot(p.x-cx, p.y-cy);
+        if(dist < p.r){ preys.splice(i,1); score++; scoreEl.textContent = score; }
+      }
+
+      // respawn occasionally
+      if(Math.random()<0.008) spawnPrey(1);
+    }
+
+    function draw(){
+      ctx.clearRect(0,0,cvs.width,cvs.height);
+      // draw preys
+      for(let p of preys){
+        ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fillStyle='rgba(250,200,60,0.95)'; ctx.fill();
+        ctx.strokeStyle='rgba(0,0,0,0.15)'; ctx.stroke();
+      }
+      // predator
+      ctx.fillStyle = '#ff6b6b'; ctx.fillRect(predator.x,predator.y,predator.w,predator.h);
+      ctx.strokeStyle='rgba(0,0,0,0.2)'; ctx.strokeRect(predator.x,predator.y,predator.w,predator.h);
+    }
+
+    function loop(){ update(); draw(); requestAnimationFrame(loop); }
+    loop();
+
+    document.getElementById('reset').onclick = ()=>{ score=0; scoreEl.textContent=score; preys.length=0; spawnPrey(6); predator.x=350; predator.y=220 };
+
+    // mobile support: tap to dash toward touch
+    cvs.addEventListener('touchstart',e=>{
+      const t = e.touches[0];
+      const rect = cvs.getBoundingClientRect();
+      const tx = t.clientX-rect.left, ty = t.clientY-rect.top;
+      predator.x += (tx - (predator.x+predator.w/2))/6;
+      predator.y += (ty - (predator.y+predator.h/2))/6;
+    });
+  </script>
+</body>
+</html>
